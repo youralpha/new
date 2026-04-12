@@ -9,6 +9,8 @@ const App = () => {
   const [resultMessage, setResultMessage] = useState('');
   const [resultUrl, setResultUrl] = useState('');
   const [port, setPort] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     const fetchPort = async () => {
@@ -20,6 +22,16 @@ const App = () => {
       }
     };
     fetchPort();
+
+    const handleLog = (event, message) => {
+      setLogs((prev) => [...prev, message]);
+    };
+
+    ipcRenderer.on('debug-log', handleLog);
+
+    return () => {
+      ipcRenderer.removeListener('debug-log', handleLog);
+    };
   }, []);
 
   const handleCompare = async () => {
@@ -106,6 +118,17 @@ const App = () => {
           )}
         </div>
       )}
+
+      <div style={{ marginTop: '40px' }}>
+        <button onClick={() => setShowLogs(!showLogs)} style={{ padding: '5px 10px', cursor: 'pointer', fontSize: '12px' }}>
+          {showLogs ? 'Скрыть дебаг-логи' : 'Показать дебаг-логи'}
+        </button>
+        {showLogs && (
+          <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#2b2b2b', color: '#a9b7c6', fontFamily: 'monospace', fontSize: '12px', height: '200px', overflowY: 'auto', whiteSpace: 'pre-wrap', borderRadius: '5px' }}>
+            {logs.length === 0 ? 'Логов пока нет...' : logs.join('\n')}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -27,6 +27,15 @@ function getFreePort() {
     });
 }
 
+let mainWindow = null;
+
+const sendLog = (message) => {
+  console.log(message);
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('debug-log', message);
+  }
+};
+
 const startFlask = async () => {
   flaskPort = await getFreePort();
   const isDev = !app.isPackaged;
@@ -42,51 +51,48 @@ const startFlask = async () => {
 
   if (isDev) {
     const venvPython = isWin ? 'venv\\Scripts\\python.exe' : 'venv/bin/python';
-    // Using app.getAppPath() provides a reliable absolute path to project root
     const rootPath = app.getAppPath();
     pythonExecutable = path.join(rootPath, 'backend', venvPython);
     scriptPath = path.join(rootPath, 'backend', 'app.py');
 
-    // If local venv Python doesn't exist, fallback to system python
-    // This allows users to run it if their venv is named differently or activated globally
     if (!fs.existsSync(pythonExecutable)) {
-      console.warn(`Local venv python not found at ${pythonExecutable}. Falling back to system python.`);
+      sendLog(`Warning: Local venv python not found at ${pythonExecutable}. Falling back to system python.`);
       pythonExecutable = isWin ? 'python' : 'python3';
     }
   } else {
-    // In prod, point to packaged resources
     scriptPath = path.join(process.resourcesPath, 'backend', 'app.py');
   }
 
-  console.log(`Starting Flask with python: ${pythonExecutable}`);
-  console.log(`Script path: ${scriptPath}`);
+  sendLog(`Starting Flask with python: ${pythonExecutable}`);
+  sendLog(`Script path: ${scriptPath}`);
+  sendLog(`Allocated Port: ${flaskPort}`);
 
   flaskProcess = spawn(pythonExecutable, [scriptPath], {
     env: { ...process.env, FLASK_PORT: flaskPort.toString() }
   });
 
   flaskProcess.on('error', (err) => {
-    console.error('Failed to start Flask subprocess:', err);
+    sendLog(`ERROR Failed to start Flask subprocess: ${err.message}`);
   });
 
   flaskProcess.stdout.on('data', (data) => {
-    console.log(`Flask stdout: ${data}`);
+    sendLog(`Flask stdout: ${data.toString()}`);
   });
 
   flaskProcess.stderr.on('data', (data) => {
-    console.error(`Flask stderr: ${data}`);
+    sendLog(`Flask stderr: ${data.toString()}`);
   });
 
   flaskProcess.on('close', (code) => {
-    console.log(`Flask process exited with code ${code}`);
+    sendLog(`Flask process exited with code ${code}`);
   });
 };
 
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
-    height: 600,
+    height: 800,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: true,
