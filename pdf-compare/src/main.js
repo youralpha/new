@@ -12,6 +12,10 @@ if (require('electron-squirrel-startup')) {
 let flaskProcess = null;
 let flaskPort = 5000;
 
+ipcMain.handle('get-flask-port', () => {
+  return flaskPort;
+});
+
 function getFreePort() {
     return new Promise((resolve, reject) => {
         const srv = net.createServer();
@@ -74,11 +78,6 @@ const createWindow = () => {
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-
-  // Send port to renderer
-  mainWindow.webContents.on('did-finish-load', () => {
-      mainWindow.webContents.send('flask-port', flaskPort);
-  });
 };
 
 app.on('ready', async () => {

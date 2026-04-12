@@ -11,9 +11,15 @@ const App = () => {
   const [port, setPort] = useState(null);
 
   useEffect(() => {
-    ipcRenderer.on('flask-port', (event, p) => {
+    const fetchPort = async () => {
+      try {
+        const p = await ipcRenderer.invoke('get-flask-port');
         setPort(p);
-    });
+      } catch (err) {
+        console.error("Failed to get port:", err);
+      }
+    };
+    fetchPort();
   }, []);
 
   const handleCompare = async () => {
