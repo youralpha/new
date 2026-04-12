@@ -11,6 +11,7 @@ const App = () => {
   const [port, setPort] = useState(null);
   const [logs, setLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
 
   useEffect(() => {
     const fetchPort = async () => {
@@ -33,6 +34,29 @@ const App = () => {
       ipcRenderer.removeListener('debug-log', handleLog);
     };
   }, []);
+
+  // Ping server until ready
+  useEffect(() => {
+    if (!port) return;
+
+    let intervalId;
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/status`);
+        if (res.ok) {
+          setServerReady(true);
+          clearInterval(intervalId);
+        }
+      } catch (e) {
+        // Not ready yet
+      }
+    };
+
+    intervalId = setInterval(checkStatus, 1000);
+    checkStatus(); // initial check
+
+    return () => clearInterval(intervalId);
+  }, [port]);
 
   const handleCompare = async () => {
     if (!file1 || !file2) {
@@ -104,8 +128,8 @@ const App = () => {
         </label>
       </div>
 
-      <button onClick={handleCompare} disabled={loading || !port} style={{ padding: '10px 20px', cursor: 'pointer' }}>
-        {loading ? 'Идет сравнение...' : 'Сравнить файлы'}
+      <button onClick={handleCompare} disabled={loading || !serverReady} style={{ padding: '10px 20px', cursor: 'pointer' }}>
+        {loading ? 'Идет сравнение...' : serverReady ? 'Сравнить файлы' : 'Ожидание запуска сервера...'}
       </button>
 
       {resultMessage && (
