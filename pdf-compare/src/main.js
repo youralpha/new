@@ -38,12 +38,21 @@ const startFlask = async () => {
   }
 
   let scriptPath;
+  const fs = require('fs');
+
   if (isDev) {
     const venvPython = isWin ? 'venv\\Scripts\\python.exe' : 'venv/bin/python';
     // Using app.getAppPath() provides a reliable absolute path to project root
     const rootPath = app.getAppPath();
     pythonExecutable = path.join(rootPath, 'backend', venvPython);
     scriptPath = path.join(rootPath, 'backend', 'app.py');
+
+    // If local venv Python doesn't exist, fallback to system python
+    // This allows users to run it if their venv is named differently or activated globally
+    if (!fs.existsSync(pythonExecutable)) {
+      console.warn(`Local venv python not found at ${pythonExecutable}. Falling back to system python.`);
+      pythonExecutable = isWin ? 'python' : 'python3';
+    }
   } else {
     // In prod, point to packaged resources
     scriptPath = path.join(process.resourcesPath, 'backend', 'app.py');
