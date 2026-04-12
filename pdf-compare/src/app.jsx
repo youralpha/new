@@ -18,8 +18,10 @@ const App = () => {
       try {
         const p = await ipcRenderer.invoke('get-flask-port');
         setPort(p);
+        setLogs(prev => [...prev, `[UI] Received port from Electron: ${p}`]);
       } catch (err) {
         console.error("Failed to get port:", err);
+        setLogs(prev => [...prev, `[UI Error] Failed to get port: ${err.message}`]);
       }
     };
     fetchPort();
@@ -42,17 +44,21 @@ const App = () => {
     let intervalId;
     const checkStatus = async () => {
       try {
+        setLogs(prev => [...prev, `[UI] Pinging http://127.0.0.1:${port}/api/status ...`]);
         const res = await fetch(`http://127.0.0.1:${port}/api/status`);
         if (res.ok) {
+          setLogs(prev => [...prev, `[UI] Server is READY!`]);
           setServerReady(true);
           clearInterval(intervalId);
+        } else {
+          setLogs(prev => [...prev, `[UI] Server returned status: ${res.status}`]);
         }
       } catch (e) {
-        // Not ready yet
+        setLogs(prev => [...prev, `[UI Error] Ping failed: ${e.message}`]);
       }
     };
 
-    intervalId = setInterval(checkStatus, 1000);
+    intervalId = setInterval(checkStatus, 2000);
     checkStatus(); // initial check
 
     return () => clearInterval(intervalId);
