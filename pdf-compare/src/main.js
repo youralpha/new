@@ -40,15 +40,24 @@ const startFlask = async () => {
   let scriptPath;
   if (isDev) {
     const venvPython = isWin ? 'venv\\Scripts\\python.exe' : 'venv/bin/python';
-    pythonExecutable = path.join(__dirname, '../../backend', venvPython);
-    scriptPath = path.join(__dirname, '../../backend/app.py');
+    // Using app.getAppPath() provides a reliable absolute path to project root
+    const rootPath = app.getAppPath();
+    pythonExecutable = path.join(rootPath, 'backend', venvPython);
+    scriptPath = path.join(rootPath, 'backend', 'app.py');
   } else {
     // In prod, point to packaged resources
     scriptPath = path.join(process.resourcesPath, 'backend', 'app.py');
   }
 
+  console.log(`Starting Flask with python: ${pythonExecutable}`);
+  console.log(`Script path: ${scriptPath}`);
+
   flaskProcess = spawn(pythonExecutable, [scriptPath], {
     env: { ...process.env, FLASK_PORT: flaskPort.toString() }
+  });
+
+  flaskProcess.on('error', (err) => {
+    console.error('Failed to start Flask subprocess:', err);
   });
 
   flaskProcess.stdout.on('data', (data) => {
