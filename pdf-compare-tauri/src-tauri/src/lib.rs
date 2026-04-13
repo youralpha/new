@@ -26,11 +26,12 @@ pub struct Metadata {
 
 #[command]
 async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, String> {
-    let pdfium = Pdfium::new(
-        Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
-            .or_else(|_| Pdfium::bind_to_system_library())
-            .map_err(|e| format!("Failed to load pdfium: {:?}", e))?
-    );
+    // On version 0.8.x of pdfium_render, `Pdfium::new` handles bindings directly.
+    let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
+        .or_else(|_| Pdfium::bind_to_system_library())
+        .map_err(|e| format!("Failed to load pdfium. Убедитесь, что pdfium.dll находится в папке src-tauri. Ошибка: {:?}", e))?;
+
+    let pdfium = Pdfium::new(bindings);
 
     let doc1 = pdfium.load_pdf_from_file(&file1, None).map_err(|e| e.to_string())?;
     let doc2 = pdfium.load_pdf_from_file(&file2, None).map_err(|e| e.to_string())?;
@@ -57,8 +58,8 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
         let bitmap1 = page1.render_with_config(&render_config).map_err(|e| e.to_string())?;
         let bitmap2 = page2.render_with_config(&render_config).map_err(|e| e.to_string())?;
 
-        let img1 = bitmap1.as_image().map_err(|e| e.to_string())?.into_rgba8();
-        let img2 = bitmap2.as_image().map_err(|e| e.to_string())?.into_rgba8();
+        let img1 = bitmap1.as_image().into_rgba8();
+        let img2 = bitmap2.as_image().into_rgba8();
 
         let w1 = img1.width();
         let h1 = img1.height();
