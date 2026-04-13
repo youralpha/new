@@ -48,24 +48,20 @@ function App() {
           <Flex direction="column" gap="4">
             <Box>
               <Text as="div" size="2" mb="1" weight="bold">Оригинальный файл (Файл 1)</Text>
-              <TextField.Root>
-                <TextField.Input
-                  placeholder="C:\Users\Admin\Documents\old_plan.pdf"
-                  value={file1}
-                  onChange={(e) => setFile1(e.target.value)}
-                />
-              </TextField.Root>
+              <TextField.Root
+                placeholder="C:\Users\Admin\Documents\old_plan.pdf"
+                value={file1}
+                onChange={(e) => setFile1(e.target.value)}
+              />
             </Box>
 
             <Box>
               <Text as="div" size="2" mb="1" weight="bold">Новый файл (Основа, Файл 2)</Text>
-              <TextField.Root>
-                <TextField.Input
-                  placeholder="C:\Users\Admin\Documents\new_plan.pdf"
-                  value={file2}
-                  onChange={(e) => setFile2(e.target.value)}
-                />
-              </TextField.Root>
+              <TextField.Root
+                placeholder="C:\Users\Admin\Documents\new_plan.pdf"
+                value={file2}
+                onChange={(e) => setFile2(e.target.value)}
+              />
             </Box>
 
             <Button size="3" mt="2" onClick={handleCompare} disabled={loading}>
