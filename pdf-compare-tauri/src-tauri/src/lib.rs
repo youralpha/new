@@ -26,11 +26,13 @@ pub struct Metadata {
 
 #[command]
 async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, String> {
-    // On version 0.8.x of pdfium_render, `Pdfium::new` handles bindings directly.
+    // Load Pdfium using the default builder and specify the current directory for the DLL
     let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
         .or_else(|_| Pdfium::bind_to_system_library())
-        .map_err(|e| format!("Failed to load pdfium. Убедитесь, что pdfium.dll находится в папке src-tauri. Ошибка: {:?}", e))?;
+        .map_err(|e| format!("Ошибка загрузки pdfium.dll. Убедитесь, что вы скачали архив с поддержкой V8. Ошибка Windows: {:?}", e))?;
 
+    // In `pdfium-render` v0.8.28, `Pdfium::new` successfully configures without V8 crashing
+    // if the DLL does not export the `FPDF_InitLibraryWithConfig` function, as it falls back to `FPDF_InitLibrary`.
     let pdfium = Pdfium::new(bindings);
 
     let doc1 = pdfium.load_pdf_from_file(&file1, None).map_err(|e| e.to_string())?;
