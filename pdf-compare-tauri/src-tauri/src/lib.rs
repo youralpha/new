@@ -94,8 +94,9 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
             }
         }
 
-        let page_output = format!("{}_diff_page_{}.jpg", file2, page_index + 1);
-        blended_img.save(&page_output).map_err(|e| e.to_string())?;
+        // Rgba8 images must be saved in a format that supports alpha channels, such as PNG.
+        let page_output = format!("{}_diff_page_{}.png", file2, page_index + 1);
+        blended_img.save(&page_output).map_err(|e| format!("Ошибка сохранения картинки: {:?}", e))?;
         output_files.push(page_output);
     }
 
@@ -116,7 +117,7 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
 
     Ok(CompareResult {
         success: true,
-        message: "Сравнение завершено. Для простоты результат сохранен в виде JPG картинок.".to_string(),
+        message: "Сравнение завершено. Результат сохранен в виде PNG картинок рядом с файлами.".to_string(),
         metadata: Some(Metadata {
             num_pages1,
             num_pages2,
