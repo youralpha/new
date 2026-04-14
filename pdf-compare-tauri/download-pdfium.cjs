@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const pdfiumUrl = 'https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/6873/pdfium-win-x64.zip';
-const zipPath = path.join(__dirname, 'pdfium.zip');
+const pdfiumUrl = 'https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz';
+const zipPath = path.join(__dirname, 'pdfium.tgz');
 const destPath = path.join(__dirname, 'src-tauri');
 
 console.log('Скачивание pdfium-win-x64...');
@@ -44,12 +44,15 @@ function findFile(dir, filename) {
 }
 
 function extractZip() {
-  console.log('Распаковка pdfium.dll...');
+  console.log('Распаковка pdfium.dll (tgz)...');
   const isWin = process.platform === 'win32';
   try {
     if (isWin) {
       const tempDir = path.join(__dirname, 'temp_pdfium');
-      execSync(`powershell -command "Expand-Archive -Force '${zipPath}' '${tempDir}'"`, { stdio: 'ignore' });
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+      // Use Windows 10+ built-in tar command
+      execSync(`tar -xf "${zipPath}" -C "${tempDir}"`, { stdio: 'ignore' });
 
       const extractedDllPath = findFile(tempDir, 'pdfium.dll');
       if (!extractedDllPath) {
@@ -57,7 +60,7 @@ function extractZip() {
       }
 
       fs.copyFileSync(extractedDllPath, path.join(destPath, 'pdfium.dll'));
-      console.log('Готово! pdfium.dll скопирован в src-tauri');
+      console.log('Готово! pdfium.dll успешно скачан и скопирован в src-tauri');
 
       fs.unlinkSync(zipPath);
       execSync(`powershell -command "Remove-Item -Recurse -Force '${tempDir}'"`, { stdio: 'ignore' });
@@ -66,6 +69,6 @@ function extractZip() {
        fs.unlinkSync(zipPath); // clean up downloaded zip anyway
     }
   } catch (e) {
-    console.error('Ошибка автоматической распаковки. Пожалуйста, распакуйте pdfium-win-x64.zip/bin/pdfium.dll в папку src-tauri вручную.', e.message);
+    console.error('Ошибка автоматической распаковки. Пожалуйста, распакуйте скачанный .tgz архив вручную.', e.message);
   }
 }
