@@ -4,8 +4,9 @@ use pdfium_render::prelude::*;
 use image::{ImageBuffer, Rgba};
 use std::cmp;
 use std::fs::File;
-use std::io::{BufWriter, Write, Cursor};
-use image::codecs::jpeg::JpegEncoder;
+use std::io::{BufWriter, Write};
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use pdf_writer::{Pdf, Content, Name, Rect, Filter, Finish};
 
 #[derive(Serialize, Deserialize)]
@@ -101,13 +102,14 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
             }
         }
 
-        // Encode this page to a JPEG buffer
-        let mut jpeg_buffer = Cursor::new(Vec::new());
+        // Encode this page losslessly using Zlib/Flate (like PNG internals)
+        // This avoids any JPEG artifacts (blurring, color bleeding on the red highlights).
+        let mut compressed_data = Vec::new();
         {
-            let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, 85);
-            encoder.encode_image(&blended_img).map_err(|e| format!("JPEG encode error: {:?}", e))?;
+            let mut encoder = ZlibEncoder::new(&mut compressed_data, Compression::best());
+            // Get raw RGB pixels
+            encoder.write_all(blended_img.as_raw()).map_err(|e| format!("Zlib encode error: {:?}", e))?;
         }
-        let jpeg_data = jpeg_buffer.into_inner();
 
         // Write page and image to the PDF using `pdf-writer`
         let page_id = alloc; alloc.bump();
@@ -141,13 +143,14 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
         content.restore_state();
         pdf.stream(content_id, &content.finish());
 
-        // Embed the JPEG
-        let mut image_stream = pdf.image_xobject(image_id, &jpeg_data);
+        // Embed the Raw compressed image
+        let mut image_stream = pdf.image_xobject(image_id, &compressed_data);
         image_stream.width(max_w as i32);
         image_stream.height(max_h as i32);
         image_stream.color_space().device_rgb();
         image_stream.bits_per_component(8);
-        image_stream.filter(Filter::DctDecode);
+        // FlateDecode guarantees perfect lossless rendering without jpeg artifacts!
+        image_stream.filter(Filter::FlateDecode);
         image_stream.finish();
     }
 
