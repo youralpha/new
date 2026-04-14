@@ -55,7 +55,9 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
         let page1 = doc1.pages().get((page_index as u16).into()).unwrap();
         let page2 = doc2.pages().get((page_index as u16).into()).unwrap();
 
-        let render_config = PdfRenderConfig::new().set_target_width(1000);
+        // Увеличиваем разрешение до формата A3 (при 300 DPI ширина A3 равна 3508px,
+        // но для гарантированной четкости при сильном увеличении мы используем 4960px).
+        let render_config = PdfRenderConfig::new().set_target_width(4960);
 
         let bitmap1 = page1.render_with_config(&render_config).map_err(|e| e.to_string())?;
         let bitmap2 = page2.render_with_config(&render_config).map_err(|e| e.to_string())?;
