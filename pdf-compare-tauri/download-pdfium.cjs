@@ -31,19 +31,22 @@ https.get(pdfiumUrl, function(response) {
 
 function extractZip() {
   console.log('Распаковка pdfium.dll...');
+  const isWin = process.platform === 'win32';
   try {
-    // try powershell unzip on windows
-    execSync(`powershell -command "Expand-Archive -Force '${zipPath}' '${__dirname}/temp_pdfium'"`, { stdio: 'ignore' });
-    fs.copyFileSync(
-      path.join(__dirname, 'temp_pdfium', 'bin', 'pdfium.dll'),
-      path.join(destPath, 'pdfium.dll')
-    );
-    console.log('Готово! pdfium.dll скопирован в src-tauri');
+    if (isWin) {
+      execSync(`powershell -command "Expand-Archive -Force '${zipPath}' '${__dirname}/temp_pdfium'"`, { stdio: 'ignore' });
+      fs.copyFileSync(
+        path.join(__dirname, 'temp_pdfium', 'bin', 'pdfium.dll'),
+        path.join(destPath, 'pdfium.dll')
+      );
+      console.log('Готово! pdfium.dll скопирован в src-tauri');
 
-    // cleanup
-    fs.unlinkSync(zipPath);
-    execSync(`powershell -command "Remove-Item -Recurse -Force '${__dirname}/temp_pdfium'"`, { stdio: 'ignore' });
+      fs.unlinkSync(zipPath);
+      execSync(`powershell -command "Remove-Item -Recurse -Force '${__dirname}/temp_pdfium'"`, { stdio: 'ignore' });
+    } else {
+       console.log('Пропуск на Linux/Mac. В Windows библиотека распакуется автоматически.');
+    }
   } catch (e) {
-    console.error('Ошибка автоматической распаковки на Windows. Пожалуйста, распакуйте pdfium-win-x64.zip/bin/pdfium.dll в папку src-tauri вручную.', e.message);
+    console.error('Ошибка автоматической распаковки. Пожалуйста, распакуйте pdfium-win-x64.zip/bin/pdfium.dll в папку src-tauri вручную.', e.message);
   }
 }
