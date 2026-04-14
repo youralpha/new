@@ -24,3 +24,4 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 pdfium-render = "=0.8.28"
 image = "0.25.10"
+pdf-writer = "0.14.0"

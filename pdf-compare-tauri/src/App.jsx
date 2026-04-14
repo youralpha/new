@@ -39,9 +39,16 @@ function App() {
       <Flex direction="column" gap="5">
         <Box>
           <Heading size="7" mb="2">Сравнение чертежей (PDF)</Heading>
-          <Text color="gray" size="3">
-            Инструмент на базе Tauri + Rust. Второй файл используется как основа для наложения.
+          <Text color="gray" size="3" as="div" mb="2">
+            Инструмент на базе Tauri + Rust.
           </Text>
+          <Callout.Root color="blue" size="1">
+            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+            <Callout.Text>
+              Все изменения и отличия подсвечиваются полупрозрачным <b>красным цветом</b>.
+              За основу берется <b>второй файл</b>, а красным выделяется то, что было изменено, удалено или добавлено по сравнению с первым файлом.
+            </Callout.Text>
+          </Callout.Root>
         </Box>
 
         <Card size="3" variant="surface">

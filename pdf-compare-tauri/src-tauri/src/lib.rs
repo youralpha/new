@@ -4,9 +4,9 @@ use pdfium_render::prelude::*;
 use image::{ImageBuffer, Rgba};
 use std::cmp;
 use std::fs::File;
-use std::io::BufWriter;
-use std::io::Cursor;
+use std::io::{BufWriter, Write, Cursor};
 use image::codecs::jpeg::JpegEncoder;
+use pdf_writer::{Pdf, Content, Name, Rect, Filter, Finish};
 
 #[derive(Serialize, Deserialize)]
 pub struct CompareResult {
@@ -43,14 +43,18 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
 
     let common_pages = cmp::min(num_pages1, num_pages2);
 
-    // Instead of using printpdf (which has conflicting versions/API),
-    // let's use the simplest approach for Tauri demo:
-    // Just save the first blended page as a PNG image to show it works,
-    // or return the paths of generated images.
-    // (A real production implementation would use a stable PDF writer or wrap poppler/imagemagick).
+    let mut pdf = Pdf::new();
+    let mut alloc = pdf_writer::Ref::new(1);
 
-    let mut output_files = Vec::new();
+    let catalog_id = alloc; alloc.bump();
+    let pages_id = alloc; alloc.bump();
 
+    pdf.catalog(catalog_id).pages(pages_id);
+    let mut page_ids = Vec::new();
+
+    // To make sure things don't get too bloated in memory, we save
+    // jpeg encodings per page directly into the PDF.
+    // NOTE: JPEG requires RGB, not RGBA. So we convert our blended image back to RGB.
     for page_index in 0..common_pages {
         let page1 = doc1.pages().get((page_index as u16).into()).unwrap();
         let page2 = doc2.pages().get((page_index as u16).into()).unwrap();
@@ -73,7 +77,8 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
         let max_w = cmp::max(w1, w2);
         let max_h = cmp::max(h1, h2);
 
-        let mut blended_img = ImageBuffer::from_pixel(max_w, max_h, Rgba([255, 255, 255, 255]));
+        // JPEG requires RGB, not RGBA
+        let mut blended_img = image::ImageBuffer::from_pixel(max_w, max_h, image::Rgb([255, 255, 255]));
 
         for y in 0..max_h {
             for x in 0..max_w {
@@ -84,23 +89,72 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
                 let g2 = (p2[0] as i32 + p2[1] as i32 + p2[2] as i32) / 3;
 
                 if (g1 - g2).abs() > 10 {
-                    blended_img.put_pixel(x, y, Rgba([
+                    // Blend pure red with the base image p2
+                    blended_img.put_pixel(x, y, image::Rgb([
                         (p2[0] as f32 * 0.5 + 255.0 * 0.5) as u8,
                         (p2[1] as f32 * 0.5 + 0.0) as u8,
                         (p2[2] as f32 * 0.5 + 0.0) as u8,
-                        255
                     ]));
                 } else {
-                    blended_img.put_pixel(x, y, Rgba(p2));
+                    blended_img.put_pixel(x, y, image::Rgb([p2[0], p2[1], p2[2]]));
                 }
             }
         }
 
-        // Rgba8 images must be saved in a format that supports alpha channels, such as PNG.
-        let page_output = format!("{}_diff_page_{}.png", file2, page_index + 1);
-        blended_img.save(&page_output).map_err(|e| format!("Ошибка сохранения картинки: {:?}", e))?;
-        output_files.push(page_output);
+        // Encode this page to a JPEG buffer
+        let mut jpeg_buffer = Cursor::new(Vec::new());
+        {
+            let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, 85);
+            encoder.encode_image(&blended_img).map_err(|e| format!("JPEG encode error: {:?}", e))?;
+        }
+        let jpeg_data = jpeg_buffer.into_inner();
+
+        // Write page and image to the PDF using `pdf-writer`
+        let page_id = alloc; alloc.bump();
+        page_ids.push(page_id);
+
+        let image_name = Name(b"Im1");
+        let image_id = alloc; alloc.bump();
+
+        // Convert pixels to PDF points (A3 = approx 842 x 1190 points)
+        // Here we just use the raw dimensions, scaled by some DPI logic if we wanted.
+        // For simplicity we will output the page matching the pixel dimensions,
+        // which makes it very large but perfectly high-res in viewers.
+        let width = max_w as f32;
+        let height = max_h as f32;
+
+        let mut page = pdf.page(page_id);
+        page.media_box(Rect::new(0.0, 0.0, width, height));
+        page.parent(pages_id);
+
+        let content_id = alloc; alloc.bump();
+        page.contents(content_id);
+        page.resources().x_objects().pair(image_name, image_id);
+        page.finish();
+
+        // Scale and draw the image to fill the page
+        let mut content = Content::new();
+        content.save_state();
+        // PDF coordinates start from bottom left, so we transform
+        content.transform([width, 0.0, 0.0, height, 0.0, 0.0]);
+        content.x_object(image_name);
+        content.restore_state();
+        pdf.stream(content_id, &content.finish());
+
+        // Embed the JPEG
+        let mut image_stream = pdf.image_xobject(image_id, &jpeg_data);
+        image_stream.width(max_w as i32);
+        image_stream.height(max_h as i32);
+        image_stream.color_space().device_rgb();
+        image_stream.bits_per_component(8);
+        image_stream.filter(Filter::DctDecode);
+        image_stream.finish();
     }
+
+    // Add all pages to the catalog
+    pdf.pages(pages_id)
+        .count(page_ids.len() as i32)
+        .kids(page_ids.into_iter());
 
     let status = if num_pages2 < num_pages1 {
         "pages_decreased"
@@ -110,16 +164,13 @@ async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, Str
         "pages_equal"
     };
 
-    // To prevent API bloat, we just return the first image for the user to view.
-    let final_output = if output_files.len() > 0 {
-        output_files[0].clone()
-    } else {
-        "".to_string()
-    };
+    let final_output = format!("{}_diff_result.pdf", file2);
+    let mut file = File::create(&final_output).map_err(|e| e.to_string())?;
+    file.write_all(&pdf.finish()).map_err(|e| e.to_string())?;
 
     Ok(CompareResult {
         success: true,
-        message: "Сравнение завершено. Результат сохранен в виде PNG картинок рядом с файлами.".to_string(),
+        message: "Сравнение завершено. Создан общий PDF файл с результатами.".to_string(),
         metadata: Some(Metadata {
             num_pages1,
             num_pages2,
