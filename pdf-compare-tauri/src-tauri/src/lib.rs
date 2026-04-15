@@ -1,10 +1,9 @@
 use tauri::command;
 use serde::{Deserialize, Serialize};
 use pdfium_render::prelude::*;
-use image::{ImageBuffer, Rgba};
 use std::cmp;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use pdf_writer::{Pdf, Content, Name, Rect, Filter, Finish};
@@ -27,15 +26,13 @@ pub struct Metadata {
 
 #[command]
 async fn compare_pdfs(file1: String, file2: String) -> Result<CompareResult, String> {
-    // We bind to the pdfium library specifically without V8 (javascript) support.
-    // In pdfium-render v0.8.28, PdfiumConfig handles skipping V8 to avoid Code 127 errors on Windows.
-    let pdfium_config = PdfiumConfig::new().set_v8_support(false);
-
+    // We downloaded the specific pdfium DLL from nuget that contains V8 and all required exports.
+    // In pdfium-render v0.8.28, `Pdfium::new` works directly.
     let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
         .or_else(|_| Pdfium::bind_to_system_library())
         .map_err(|e| format!("Failed to load pdfium. Убедитесь, что pdfium.dll находится в папке src-tauri. Ошибка: {:?}", e))?;
 
-    let pdfium = Pdfium::new_with_config(bindings, pdfium_config).map_err(|e| e.to_string())?;
+    let pdfium = Pdfium::new(bindings);
 
     let doc1 = pdfium.load_pdf_from_file(&file1, None).map_err(|e| e.to_string())?;
     let doc2 = pdfium.load_pdf_from_file(&file2, None).map_err(|e| e.to_string())?;
