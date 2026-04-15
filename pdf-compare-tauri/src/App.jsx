@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { Container, Card, Flex, Text, TextField, Button, Heading, Callout } from "@radix-ui/themes";
+import { Container, Card, Flex, Text, TextField, Button, Heading, Callout, Box, Badge } from "@radix-ui/themes";
 import { InfoCircledIcon, CheckCircledIcon, CrossCircledIcon, UpdateIcon } from "@radix-ui/react-icons";
 import * as pdfjsLib from "pdfjs-dist";
 
