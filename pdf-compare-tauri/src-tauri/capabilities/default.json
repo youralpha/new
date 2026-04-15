@@ -6,6 +6,10 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "fs:default"
+    "fs:default",
+    {
+      "identifier": "fs:allow-read",
+      "allow": [{ "path": "**" }]
+    }
   ]
 }
