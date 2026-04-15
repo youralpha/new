@@ -3,20 +3,21 @@ const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 
-// We use the older 5200 chromium build zip which is known to be a standard ZIP file
-// (not a TGZ) and includes the necessary symbols for pdfium-render.
-// This completely bypasses the .tgz tar issue and the Expand-Archive subfolder issue.
-const pdfiumUrl = 'https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/5200/pdfium-win-x64.zip';
-const zipPath = path.join(__dirname, 'pdfium.zip');
+// We use the extremely stable, official NuGet package server which serves
+// standard zip files (.nupkg) that never expire and don't have broken redirect loops.
+// This specific version contains the full x64 pdfium.dll with V8 support.
+const pdfiumUrl = 'https://www.nuget.org/api/v2/package/PdfiumViewer.Native.x86_64.v8-xfa/2018.4.8.256';
+const zipPath = path.join(__dirname, 'pdfium.nupkg');
 const destPath = path.join(__dirname, 'src-tauri');
 
-console.log('Скачивание стабильной версии pdfium-win-x64.zip...');
+console.log('Скачивание 100% стабильной версии pdfium.dll из NuGet...');
 const isWin = process.platform === 'win32';
 
 if (isWin) {
   const file = fs.createWriteStream(zipPath);
   https.get(pdfiumUrl, function(response) {
     if (response.statusCode === 302 || response.statusCode === 301) {
+      // Handle 1-step redirect common on nuget CDN
       https.get(response.headers.location, function(res) {
         res.pipe(file);
         file.on('finish', function() {
@@ -46,6 +47,7 @@ function extractZip() {
 
     let dllFound = false;
     for (let i = 0; i < zipEntries.length; i++) {
+      // Inside this NuGet package, the dll is at "x64/pdfium.dll"
       if (zipEntries[i].entryName.endsWith('pdfium.dll')) {
         // Extract this specific file to src-tauri
         const content = zipEntries[i].getData();
@@ -58,7 +60,7 @@ function extractZip() {
     if (dllFound) {
       console.log('Готово! pdfium.dll (x64) успешно извлечен в src-tauri.');
     } else {
-      console.error('Ошибка: pdfium.dll не найден внутри скачанного ZIP архива.');
+      console.error('Ошибка: pdfium.dll не найден внутри скачанного NuGet архива.');
     }
 
     fs.unlinkSync(zipPath); // clean up
