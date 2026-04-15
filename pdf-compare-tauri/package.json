@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "postinstall": "node download-pdfium.cjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -13,14 +12,16 @@
   "dependencies": {
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/themes": "^3.3.0",
-    "@tauri-apps/api": "~2.9.0",
-    "@tauri-apps/plugin-opener": "~2.2.7",
-    "adm-zip": "^0.5.17",
+    "@tauri-apps/api": "~2.10.1",
+    "@tauri-apps/plugin-fs": "~2.2.1",
+    "@tauri-apps/plugin-opener": "~2.2.3",
+    "pdfjs-dist": "^3.11.174",
+    "pixelmatch": "^7.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "~2.9.0",
+    "@tauri-apps/cli": "~2.10.1",
     "@vitejs/plugin-react": "^4.6.0",
     "vite": "^7.0.4"
   }
