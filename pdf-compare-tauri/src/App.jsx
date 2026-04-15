@@ -4,10 +4,13 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { Container, Card, Flex, Text, TextField, Button, Heading, Callout } from "@radix-ui/themes";
 import { InfoCircledIcon, CheckCircledIcon, CrossCircledIcon, UpdateIcon } from "@radix-ui/react-icons";
 import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker?url";
 
-// Set worker path
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Provide the worker directly from the locally installed node_modules folder using standard ES URL resolution
+// This prevents Vite builder crashes (white screens) caused by the ?url syntax.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.js",
+  import.meta.url
+).toString();
 
 function App() {
   const [file1, setFile1] = useState("");
