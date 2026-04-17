@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { readFile } from "@tauri-apps/plugin-fs";
-import { Container, Card, Flex, Text, TextField, Button, Heading, Callout, Box, Badge } from "@radix-ui/themes";
+import { Container, Card, Flex, Text, Button, Heading, Callout, Box, Badge } from "@radix-ui/themes";
 import { InfoCircledIcon, CheckCircledIcon, CrossCircledIcon, UpdateIcon } from "@radix-ui/react-icons";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -13,12 +12,15 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 function App() {
-  const [file1, setFile1] = useState("");
-  const [file2, setFile2] = useState("");
+  const [file1, setFile1] = useState(null);
+  const [file2, setFile2] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const file1Ref = useRef(null);
+  const file2Ref = useRef(null);
 
   async function renderPageToCanvas(pdfDoc, pageNum, scale = 2.0) {
     const page = await pdfDoc.getPage(pageNum);
@@ -48,7 +50,7 @@ function App() {
 
   async function handleCompare() {
     if (!file1 || !file2) {
-      setError("Пожалуйста, введите полные пути к обоим файлам на вашем компьютере.");
+      setError("Пожалуйста, выберите оба файла на вашем компьютере.");
       return;
     }
 
@@ -58,9 +60,13 @@ function App() {
     setProgressMsg("Чтение файлов...");
 
     try {
-      // 1. Read PDF files via Tauri FS API
-      const file1Data = await readFile(file1);
-      const file2Data = await readFile(file2);
+      // 1. Read PDF files directly via standard HTML5 browser API
+      const file1Buffer = await file1.arrayBuffer();
+      const file2Buffer = await file2.arrayBuffer();
+
+      // Convert ArrayBuffer to Uint8Array for PDF.js
+      const file1Data = new Uint8Array(file1Buffer);
+      const file2Data = new Uint8Array(file2Buffer);
 
       setProgressMsg("Парсинг документов (PDF.js)...");
       const doc1 = await pdfjsLib.getDocument({ data: file1Data }).promise;
@@ -146,8 +152,9 @@ function App() {
       }
 
       setProgressMsg("Сохранение PDF (Rust)...");
+      const baseName = file2.name ? file2.name.replace(/\.pdf$/i, '') : "compared";
       const response = await invoke("create_pdf", {
-          file2Path: file2,
+          file2Path: baseName,
           pages: processedPages
       });
 
@@ -187,19 +194,23 @@ function App() {
           <Flex direction="column" gap="4">
             <Box>
               <Text as="div" size="2" mb="1" weight="bold">Оригинальный файл (Файл 1)</Text>
-              <TextField.Root
-                placeholder="C:\Users\Admin\Documents\old_plan.pdf"
-                value={file1}
-                onChange={(e) => setFile1(e.target.value)}
+              <input
+                type="file"
+                accept="application/pdf"
+                ref={file1Ref}
+                onChange={(e) => setFile1(e.target.files[0])}
+                style={{ padding: '8px', border: '1px solid var(--gray-a6)', borderRadius: '4px', width: '100%', cursor: 'pointer' }}
               />
             </Box>
 
             <Box>
               <Text as="div" size="2" mb="1" weight="bold">Новый файл (Основа, Файл 2)</Text>
-              <TextField.Root
-                placeholder="C:\Users\Admin\Documents\new_plan.pdf"
-                value={file2}
-                onChange={(e) => setFile2(e.target.value)}
+              <input
+                type="file"
+                accept="application/pdf"
+                ref={file2Ref}
+                onChange={(e) => setFile2(e.target.files[0])}
+                style={{ padding: '8px', border: '1px solid var(--gray-a6)', borderRadius: '4px', width: '100%', cursor: 'pointer' }}
               />
             </Box>
 
